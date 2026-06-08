@@ -25,6 +25,16 @@ export function getYouTubeEmbedUrl(videoId: string, autoplay = true): string {
     disablekb: '1',
     iv_load_policy: '3',
     enablejsapi: '1',
+    mute: '0',
   });
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+}
+
+export function detectContentType(url: string): 'youtube' | 'image' | 'video' | 'webpage' {
+  if (!url) return 'webpage';
+  if (extractYouTubeId(url)) return 'youtube';
+  const lower = url.toLowerCase().split('?')[0];
+  if (/\.(jpg|jpeg|png|gif|webp|svg)$/.test(lower)) return 'image';
+  if (/\.(mp4|webm|ogg|mov)$/.test(lower)) return 'video';
+  return 'webpage';
 }

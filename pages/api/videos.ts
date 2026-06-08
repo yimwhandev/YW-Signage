@@ -1,52 +1,57 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getVideosFromSheet, addVideoToSheet, reorderSheet } from '@/lib/sheets';
-import { extractYouTubeId } from '@/lib/youtube';
-import { VideoItem } from '@/lib/types';
+import { getMediaFromSheet, addMediaToSheet, reorderMediaSheet } from '@/lib/sheets';
+import { extractYouTubeId, detectContentType } from '@/lib/youtube';
+import { MediaItem } from '@/lib/types';
 
+function randomId() { return Math.random().toString(36).slice(2, 10); }
 
-function randomId() {
-  return Math.random().toString(36).slice(2, 10);
+function checkAuth(req: NextApiRequest) {
+  return req.headers['x-admin-password'] === process.env.ADMIN_PASSWORD;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Simple auth check
-  const auth = req.headers['x-admin-password'];
-  if (auth !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  if (!checkAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   if (req.method === 'GET') {
-    const videos = await getVideosFromSheet();
-    return res.status(200).json(videos);
+    const items = await getMediaFromSheet();
+    return res.status(200).json(items);
   }
 
   if (req.method === 'POST') {
-    const { title, youtubeUrl, duration, scheduledStart, scheduledEnd } = req.body;
-    const youtubeId = extractYouTubeId(youtubeUrl);
-    if (!youtubeId) return res.status(400).json({ error: 'Invalid YouTube URL' });
+    const { title, youtubeUrl, contentUrl, duration, scheduledStart, scheduledEnd, playlistId } = req.body;
 
-    const existing = await getVideosFromSheet();
-    const newVideo: VideoItem = {
+    const rawUrl = youtubeUrl || contentUrl || '';
+    const type = detectContentType(rawUrl);
+    const youtubeId = type === 'youtube' ? extractYouTubeId(rawUrl) : undefined;
+
+    if (type === 'youtube' && !youtubeId) {
+      return res.status(400).json({ error: 'Invalid YouTube URL' });
+    }
+
+    const existing = await getMediaFromSheet();
+    const newItem: MediaItem = {
       id: randomId(),
-      title: title || `Video ${existing.length + 1}`,
-      youtubeUrl,
-      youtubeId,
+      title: title || `Content ${existing.length + 1}`,
+      type,
+      youtubeUrl: type === 'youtube' ? rawUrl : undefined,
+      youtubeId: youtubeId || undefined,
+      contentUrl: type !== 'youtube' ? rawUrl : undefined,
       duration: duration || 60,
       order: existing.length + 1,
       active: true,
-      scheduledStart,
-      scheduledEnd,
+      scheduledStart: scheduledStart || undefined,
+      scheduledEnd: scheduledEnd || undefined,
       addedAt: new Date().toISOString(),
+      playlistId: playlistId || undefined,
     };
 
-    await addVideoToSheet(newVideo);
-    return res.status(201).json(newVideo);
+    await addMediaToSheet(newItem);
+    return res.status(201).json(newItem);
   }
 
   if (req.method === 'PUT') {
-    // Reorder
-    const { videos } = req.body as { videos: VideoItem[] };
-    await reorderSheet(videos);
+    const { videos } = req.body as { videos: MediaItem[] };
+    await reorderMediaSheet(videos);
     return res.status(200).json({ ok: true });
   }
 

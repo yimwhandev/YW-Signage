@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
-import { VideoItem } from './types';
+import { MediaItem, EmergencyAlert } from './types';
 
-export async function fetchVideosFromCSV(): Promise<VideoItem[]> {
+export async function fetchVideosFromCSV(): Promise<MediaItem[]> {
   const csvUrl = process.env.NEXT_PUBLIC_SHEET_CSV_URL;
   if (!csvUrl) return [];
 
@@ -15,35 +15,44 @@ export async function fetchVideosFromCSV(): Promise<VideoItem[]> {
         skipEmptyLines: true,
         complete: (result) => {
           const rows = result.data as Record<string, string>[];
-          const videos: VideoItem[] = rows
+          const items: MediaItem[] = rows
             .filter(r => r.id && r.active === 'TRUE')
             .map(r => ({
               id: r.id,
               title: r.title || '',
-              youtubeUrl: r.youtubeUrl || '',
-              youtubeId: r.youtubeId || '',
+              type: (r.type as MediaItem['type']) || 'youtube',
+              youtubeUrl: r.youtubeUrl || undefined,
+              youtubeId: r.youtubeId || undefined,
+              contentUrl: r.contentUrl || undefined,
               duration: parseInt(r.duration) || 60,
               order: parseInt(r.order) || 0,
               active: r.active === 'TRUE',
               scheduledStart: r.scheduledStart || undefined,
               scheduledEnd: r.scheduledEnd || undefined,
               addedAt: r.addedAt || '',
+              playlistId: r.playlistId || undefined,
             }))
             .sort((a, b) => a.order - b.order);
-          resolve(videos);
+          resolve(items);
         },
         error: () => resolve([]),
       });
     });
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
-export function isVideoScheduledNow(video: VideoItem): boolean {
-  if (!video.scheduledStart && !video.scheduledEnd) return true;
+export async function fetchEmergencyFromAPI(): Promise<EmergencyAlert | null> {
+  try {
+    const res = await fetch('/api/emergency', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+export function isVideoScheduledNow(item: MediaItem): boolean {
+  if (!item.scheduledStart && !item.scheduledEnd) return true;
   const now = new Date();
-  if (video.scheduledStart && new Date(video.scheduledStart) > now) return false;
-  if (video.scheduledEnd && new Date(video.scheduledEnd) < now) return false;
+  if (item.scheduledStart && new Date(item.scheduledStart) > now) return false;
+  if (item.scheduledEnd && new Date(item.scheduledEnd) < now) return false;
   return true;
 }
