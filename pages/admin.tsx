@@ -205,10 +205,10 @@ export default function AdminPage() {
   // ─── Login ────────────────────────────────────────────────
   if (!authed) return (
     <div style={S.loginBg}>
-      <Head><title>Admin — Digital Signage</title></Head>
+      <Head><title>Admin — Yimwhan Digital Signage</title></Head>
       <div style={S.loginCard}>
         <div style={{ fontSize: 52, marginBottom: 8 }}>📺</div>
-        <h1 style={S.loginTitle}>Digital Signage</h1>
+        <h1 style={S.loginTitle}>Yimwhan Digital Signage</h1>
         <p style={S.loginSub}>Admin Dashboard</p>
         <input style={S.input} type="password" placeholder="รหัสผ่าน" value={password}
           onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && login()} />
@@ -221,7 +221,7 @@ export default function AdminPage() {
   // ─── Dashboard ───────────────────────────────────────────
   return (
     <div style={S.page}>
-      <Head><title>Admin — Digital Signage</title></Head>
+      <Head><title>Admin — Yimwhan Digital Signage</title></Head>
 
       {/* Toast */}
       {toast && <div style={{ ...S.toast, background: toast.type === 'ok' ? '#43e97b' : '#ff6584' }}>{toast.msg}</div>}
@@ -241,7 +241,7 @@ export default function AdminPage() {
         <div style={S.headerLeft}>
           <span style={{ fontSize: 26 }}>📺</span>
           <div>
-            <h1 style={S.headerTitle}>Digital Signage</h1>
+            <h1 style={S.headerTitle}>Yimwhan Digital Signage</h1>
             <p style={S.headerSub}>Admin Dashboard</p>
           </div>
         </div>
@@ -276,7 +276,7 @@ export default function AdminPage() {
       <div style={S.tabs}>
         {(['queue', 'analytics', 'playlists', 'emergency'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{ ...S.tab, ...(tab === t ? S.tabActive : {}) }}>
-            {{ queue: '🎬 คิว', analytics: '📊 Analytics', playlists: '📋 Playlists', emergency: '🚨 Emergency' }[t]}
+            {{ queue: '🎬 Content', analytics: '📊 Analytics', playlists: '📋 Playlists', emergency: '🚨 Emergency' }[t]}
           </button>
         ))}
       </div>

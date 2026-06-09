@@ -121,7 +121,7 @@ export default function DisplayPage() {
   return (
     <div style={DS.screen}>
       <Head>
-        <title>Display — Digital Signage</title>
+        <title>Display — Yimwhan Digital Signage</title>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Space+Mono:wght@700&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
