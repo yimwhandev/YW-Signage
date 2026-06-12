@@ -255,7 +255,7 @@ export default function AdminPage() {
     { key: 'playlists', label: '📋 Playlists' },
     { key: 'users', label: '👤 Users', adminOnly: true },
     { key: 'emergency', label: '🚨 Emergency' },
-    { key: 'settings', label: '⚙️ Settings', adminOnly: true },
+    { key: 'settings', label: '⚙️ Settings' },
   ];
 
   // ─── Login Screen ─────────────────────────────────────────
@@ -697,7 +697,7 @@ export default function AdminPage() {
         )}
 
         {/* ═══ TAB: SETTINGS ═══════════════════════════ */}
-        {tab === 'settings' && canAdmin && (
+        {tab === 'settings' && canWrite && (
           <div style={{ maxWidth: 560 }}>
             <div style={{ ...S.card, flexDirection: 'column', gap: 20, cursor: 'default', padding: 24 }}>
               <div>

@@ -174,6 +174,19 @@ export default function DisplayPage() {
   const current = items[currentIdx];
   const progressPct = current ? ((current.duration - countdown) / current.duration) * 100 : 0;
 
+  // ─── Autoplay / Mute handling ─────────────────────────────
+  // Browser requires mute=1 for autoplay before user interaction.
+  // After first tap anywhere on screen → unmute all subsequent videos.
+  const [muted, setMuted] = useState(true);
+  const [showTapHint, setShowTapHint] = useState(true);
+
+  function handleScreenTap() {
+    if (muted) {
+      setMuted(false);
+      setShowTapHint(false);
+    }
+  }
+
   // ─── Loading ─────────────────────────────────────────
   if (loading) return (
     <div style={DS.loadingScreen}>
@@ -192,7 +205,7 @@ export default function DisplayPage() {
   );
 
   return (
-    <div style={DS.screen}>
+    <div style={DS.screen} onClick={handleScreenTap}>
       <Head>
         <title>{screen?.name || 'Display'} — Digital Signage</title>
         <style>{`
@@ -203,6 +216,7 @@ export default function DisplayPage() {
           @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
           @keyframes marquee { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes tapPulse { 0%,100% { opacity:0.85; transform:scale(1); } 50% { opacity:1; transform:scale(1.04); } }
           body { margin: 0; overflow: hidden; background: #000; font-family: 'DM Sans', sans-serif; }
         `}</style>
       </Head>
@@ -210,8 +224,8 @@ export default function DisplayPage() {
       {/* ─── Content ───────────────────────────────────── */}
       <div style={{ ...DS.mediaWrap, opacity: transitioning ? 0 : 1, transition: 'opacity 0.6s ease' }}>
         {current?.type === 'youtube' && current.youtubeId && (
-          <iframe key={current.id + currentIdx}
-            src={getYouTubeEmbedUrl(current.youtubeId, true)}
+          <iframe key={current.id + currentIdx + (muted ? 'm' : 's')}
+            src={getYouTubeEmbedUrl(current.youtubeId, true, muted)}
             style={DS.iframe} allow="autoplay; encrypted-media" allowFullScreen />
         )}
         {current?.type === 'image' && current.contentUrl && (
@@ -234,6 +248,24 @@ export default function DisplayPage() {
           <div style={DS.progressBar}>
             <div style={{ ...DS.progressFill, width: `${progressPct}%` }} />
           </div>
+
+          {/* Tap to unmute hint — shown only when muted */}
+          {showTapHint && muted && (
+            <div style={DS.tapHint}>
+              <div style={DS.tapHintInner}>
+                <span style={{ fontSize: 28 }}>🔇</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 2 }}>แตะหน้าจอเพื่อเปิดเสียง</div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>Tap anywhere to unmute</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mute indicator (small) — shown after hint is dismissed but still muted */}
+          {!showTapHint && muted && (
+            <div style={DS.mutePill}>🔇 Muted — แตะเพื่อเปิดเสียง</div>
+          )}
 
           {/* Offline badge */}
           {isOffline && (
@@ -320,6 +352,11 @@ const DS: Record<string, React.CSSProperties> = {
   overlay: { position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' },
   progressBar: { height: 3, background: 'rgba(255,255,255,0.08)', flexShrink: 0 },
   progressFill: { height: '100%', background: 'linear-gradient(90deg,#6c63ff,#ff6584)', transition: 'width 1s linear', borderRadius: '0 2px 2px 0' },
+
+  // Tap to unmute — centered, pulsing, pointer-events on so user can click it
+  tapHint: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'all', cursor: 'pointer' },
+  tapHintInner: { display: 'flex', alignItems: 'center', gap: 16, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '20px 32px', color: '#fff', animation: 'tapPulse 2s ease-in-out infinite' },
+  mutePill: { position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', borderRadius: 100, padding: '5px 16px', fontSize: 12, whiteSpace: 'nowrap', pointerEvents: 'all', cursor: 'pointer' },
 
   offlinePill: { position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,165,0,0.15)', border: '1px solid rgba(255,165,0,0.3)', color: '#ffa500', borderRadius: 100, padding: '5px 16px', fontSize: 12, whiteSpace: 'nowrap' },
 

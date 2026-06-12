@@ -14,9 +14,12 @@ export function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-export function getYouTubeEmbedUrl(videoId: string, autoplay = true): string {
+// muted=true  → autoplay works immediately (browser policy requires mute for autoplay)
+// muted=false → plays with sound (requires prior user interaction on the page)
+export function getYouTubeEmbedUrl(videoId: string, autoplay = true, muted = true): string {
   const params = new URLSearchParams({
     autoplay: autoplay ? '1' : '0',
+    mute: muted ? '1' : '0',
     controls: '0',
     modestbranding: '1',
     rel: '0',
@@ -25,7 +28,7 @@ export function getYouTubeEmbedUrl(videoId: string, autoplay = true): string {
     disablekb: '1',
     iv_load_policy: '3',
     enablejsapi: '1',
-    mute: '0',
+    playsinline: '1',
   });
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
 }
