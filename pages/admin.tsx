@@ -38,6 +38,15 @@ export default function AdminPage() {
   const [settings, setSettings] = useState({ refreshInterval: '30', emergencyPoll: '15', heartbeatInterval: '15' });
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  // ─── Edit states ──────────────────────────────────────────
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editDuration, setEditDuration] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editPlaylistId, setEditPlaylistId] = useState('');
+  const [editingPlaylistId, setEditingPlaylistId] = useState<string | null>(null);
+  const [editPlName, setEditPlName] = useState('');
+  const [editPlColor, setEditPlColor] = useState('');
+
   // ─── UI state ─────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -173,6 +182,44 @@ export default function AdminPage() {
     const re = ordered.map((v, i) => ({ ...v, order: i + 1 }));
     setItems(re);
     await fetch('/api/videos', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ videos: re }) });
+  }
+
+  function startEditItem(item: MediaItem) {
+    setEditingItemId(item.id);
+    setEditDuration(String(item.duration));
+    setEditTitle(item.title);
+    setEditPlaylistId(item.playlistId || '');
+  }
+
+  async function saveEditItem(item: MediaItem) {
+    const updated = { ...item, title: editTitle, duration: parseInt(editDuration) || item.duration, playlistId: editPlaylistId || undefined };
+    const r = await fetch(`/api/videos/${item.id}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(updated) });
+    if (r.ok) {
+      setItems(p => p.map(v => v.id === item.id ? updated : v));
+      setEditingItemId(null);
+      showToast('บันทึกแล้ว ✓');
+    }
+  }
+
+  function startEditPlaylist(pl: { id: string; name: string; color: string }) {
+    setEditingPlaylistId(pl.id);
+    setEditPlName(pl.name);
+    setEditPlColor(pl.color);
+  }
+
+  async function saveEditPlaylist(plId: string) {
+    const r = await fetch(`/api/playlists/${plId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ name: editPlName, color: editPlColor }) });
+    if (r.ok) {
+      setPlaylists(p => p.map(pl => pl.id === plId ? { ...pl, name: editPlName, color: editPlColor } : pl));
+      setEditingPlaylistId(null);
+      showToast('แก้ไข Playlist แล้ว ✓');
+    }
+  }
+
+  async function deletePlaylist(plId: string) {
+    if (!confirm('ลบ Playlist นี้? (คอนเทนต์ที่อยู่ใน Playlist จะยังอยู่ แต่ไม่มี Playlist)')) return;
+    const r = await fetch(`/api/playlists/${plId}`, { method: 'DELETE', headers: authHeaders() });
+    if (r.ok) { setPlaylists(p => p.filter(pl => pl.id !== plId)); showToast('ลบ Playlist แล้ว'); }
   }
 
   // ─── Emergency ────────────────────────────────────────────
@@ -367,37 +414,84 @@ export default function AdminPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {filteredItems.map((item, i) => {
                 const pl = playlists.find(p => p.id === item.playlistId);
+                const isEditing = editingItemId === item.id;
                 return (
-                  <div key={item.id} draggable={canWrite}
-                    onDragStart={() => onDragStart(item.id)} onDragOver={e => onDragOver(e, item.id)}
+                  <div key={item.id} draggable={canWrite && !isEditing}
+                    onDragStart={() => !isEditing && onDragStart(item.id)} onDragOver={e => onDragOver(e, item.id)}
                     onDrop={() => onDrop(item.id)} onDragEnd={() => { setDragItem(null); setDragOver(null); }}
-                    style={{ ...S.card, opacity: dragItem === item.id ? 0.4 : 1, borderColor: dragOver === item.id ? '#6c63ff' : 'var(--border)', cursor: canWrite ? 'grab' : 'default' }}>
-                    <div style={S.orderBadge}>{item.order}</div>
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                      {item.type === 'youtube' && item.youtubeId
-                        ? <img src={getYouTubeThumbnail(item.youtubeId)} style={S.thumb} alt="" />
-                        : item.type === 'image' && item.contentUrl
-                        ? <img src={item.contentUrl} style={S.thumb} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                        : <div style={{ ...S.thumb, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{typeIcon(item.type)}</div>}
-                      <div style={S.typeTag}>{typeIcon(item.type)}</div>
-                    </div>
-                    <div style={S.cardInfo}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={S.cardTitle}>{item.title}</span>
-                        {pl && <span style={{ ...S.plTag, background: pl.color + '18', color: pl.color, borderColor: pl.color + '40' }}>{pl.name}</span>}
+                    style={{ ...S.card, opacity: dragItem === item.id ? 0.4 : 1, borderColor: isEditing ? '#6c63ff' : dragOver === item.id ? '#6c63ff' : 'var(--border)', cursor: canWrite && !isEditing ? 'grab' : 'default', flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
+
+                    {/* ─── Normal view ─── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={S.orderBadge}>{item.order}</div>
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        {item.type === 'youtube' && item.youtubeId
+                          ? <img src={getYouTubeThumbnail(item.youtubeId)} style={S.thumb} alt="" />
+                          : item.type === 'image' && item.contentUrl
+                          ? <img src={item.contentUrl} style={S.thumb} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          : <div style={{ ...S.thumb, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{typeIcon(item.type)}</div>}
+                        <div style={S.typeTag}>{typeIcon(item.type)}</div>
                       </div>
-                      <div style={S.cardMeta}>
-                        <span>{typeLabel(item.type)}</span>
-                        <span>⏱ {fmtDur(item.duration)}</span>
-                        {item.scheduledStart && <span>📅 {new Date(item.scheduledStart).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</span>}
-                        <span style={{ color: item.active ? '#43e97b' : '#ff6584' }}>● {item.active ? 'Active' : 'Paused'}</span>
+                      <div style={S.cardInfo}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={S.cardTitle}>{item.title}</span>
+                          {pl && <span style={{ ...S.plTag, background: pl.color + '18', color: pl.color, borderColor: pl.color + '40' }}>{pl.name}</span>}
+                        </div>
+                        <div style={S.cardMeta}>
+                          <span>{typeLabel(item.type)}</span>
+                          <span>⏱ {fmtDur(item.duration)}</span>
+                          {item.scheduledStart && <span>📅 {new Date(item.scheduledStart).toLocaleDateString('th-TH', { day: '2-digit', month: 'short' })}</span>}
+                          <span style={{ color: item.active ? '#43e97b' : '#ff6584' }}>● {item.active ? 'Active' : 'Paused'}</span>
+                        </div>
                       </div>
+                      {canWrite && (
+                        <div style={S.cardActions}>
+                          <button style={S.iconBtn} title="Preview" onClick={() => setPreviewItem(item)}>▶</button>
+                          <button style={{ ...S.iconBtn, color: '#6c63ff' }} title="แก้ไข" onClick={() => isEditing ? setEditingItemId(null) : startEditItem(item)}>✏️</button>
+                          <button style={{ ...S.iconBtn, color: item.active ? '#ff6584' : '#43e97b' }} onClick={() => toggleActive(item)}>{item.active ? '⏸' : '▶'}</button>
+                          <button style={{ ...S.iconBtn, color: '#ff6584' }} onClick={() => deleteItem(item.id)}>🗑</button>
+                        </div>
+                      )}
                     </div>
-                    {canWrite && (
-                      <div style={S.cardActions}>
-                        <button style={S.iconBtn} onClick={() => setPreviewItem(item)}>▶</button>
-                        <button style={{ ...S.iconBtn, color: item.active ? '#ff6584' : '#43e97b' }} onClick={() => toggleActive(item)}>{item.active ? '⏸' : '▶'}</button>
-                        <button style={{ ...S.iconBtn, color: '#ff6584' }} onClick={() => deleteItem(item.id)}>🗑</button>
+
+                    {/* ─── Inline edit panel ─── */}
+                    {isEditing && (
+                      <div style={{ marginTop: 12, padding: '14px 16px', background: 'var(--surface2)', borderRadius: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
+                          <div>
+                            <label style={S.label}>ชื่อ</label>
+                            <input style={S.input} value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && saveEditItem(item)} />
+                          </div>
+                          <div>
+                            <label style={S.label}>ระยะเวลา (วินาที)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {/* Quick presets */}
+                              {[15, 30, 60, 120, 300].map(sec => (
+                                <button key={sec} onClick={() => setEditDuration(String(sec))}
+                                  style={{ ...S.chip, padding: '4px 10px', fontSize: 11, ...(editDuration === String(sec) ? S.chipActive : {}) }}>
+                                  {sec >= 60 ? `${sec/60}น.` : `${sec}ว.`}
+                                </button>
+                              ))}
+                              <input style={{ ...S.input, width: 80, textAlign: 'center', fontFamily: 'Space Mono,monospace', fontWeight: 700 }}
+                                type="number" min={5} value={editDuration} onChange={e => setEditDuration(e.target.value)} />
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>วิ</span>
+                            </div>
+                          </div>
+                        </div>
+                        {playlists.length > 0 && (
+                          <div>
+                            <label style={S.label}>Playlist</label>
+                            <select style={{ ...S.input, maxWidth: 240 }} value={editPlaylistId} onChange={e => setEditPlaylistId(e.target.value)}>
+                              <option value="">ไม่ระบุ</option>
+                              {playlists.map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                            </select>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button style={S.btnPrimary} onClick={() => saveEditItem(item)}>💾 บันทึก</button>
+                          <button style={S.btnGhost} onClick={() => setEditingItemId(null)}>ยกเลิก</button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -561,15 +655,46 @@ export default function AdminPage() {
             )}
             {playlists.length === 0 ? <div style={S.empty}>ยังไม่มี Playlist</div> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {playlists.map(pl => (
-                  <div key={pl.id} style={{ ...S.card, cursor: 'default' }}>
-                    <div style={{ width: 14, height: 40, borderRadius: 4, background: pl.color, flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>{pl.name}</div>
-                      <div style={S.cardMeta}><span>{items.filter(v => v.playlistId === pl.id).length} คอนเทนต์</span></div>
+                {playlists.map(pl => {
+                  const isEditingPl = editingPlaylistId === pl.id;
+                  const count = items.filter(v => v.playlistId === pl.id).length;
+                  return (
+                    <div key={pl.id} style={{ ...S.card, cursor: 'default', flexDirection: 'column', gap: 0, borderColor: isEditingPl ? '#6c63ff' : 'var(--border)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 14, height: 40, borderRadius: 4, background: pl.color, flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>{pl.name}</div>
+                          <div style={S.cardMeta}><span>{count} คอนเทนต์</span></div>
+                        </div>
+                        {canWrite && (
+                          <div style={S.cardActions}>
+                            <button style={{ ...S.iconBtn, color: '#6c63ff' }} title="แก้ไข"
+                              onClick={() => isEditingPl ? setEditingPlaylistId(null) : startEditPlaylist(pl)}>✏️</button>
+                            <button style={{ ...S.iconBtn, color: '#ff6584' }} title="ลบ"
+                              onClick={() => deletePlaylist(pl.id)}>🗑</button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Inline edit */}
+                      {isEditingPl && (
+                        <div style={{ marginTop: 12, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 10, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={S.label}>ชื่อ Playlist</label>
+                            <input style={S.input} value={editPlName} onChange={e => setEditPlName(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && saveEditPlaylist(pl.id)} />
+                          </div>
+                          <div>
+                            <label style={S.label}>สี</label>
+                            <input type="color" value={editPlColor} onChange={e => setEditPlColor(e.target.value)}
+                              style={{ width: 44, height: 44, border: '1px solid var(--border)', borderRadius: 10, cursor: 'pointer', background: 'none', padding: 2 }} />
+                          </div>
+                          <button style={S.btnPrimary} onClick={() => saveEditPlaylist(pl.id)}>💾 บันทึก</button>
+                          <button style={S.btnGhost} onClick={() => setEditingPlaylistId(null)}>ยกเลิก</button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
